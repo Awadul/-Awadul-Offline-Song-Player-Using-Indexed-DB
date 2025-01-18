@@ -3,7 +3,8 @@
     margin: 0;
 }
 body {
-    background-color: bisque;
+    /* background-color: bisque; */
+    background-color: black;
 }
 .container {
     min-height: 78vh;
@@ -105,6 +106,10 @@ nav {
     padding-right: 2px;
     padding-left: 2px;
 }
+.song-cover {
+    width: 1.2vw;
+    margin: 0 10px;
+}
 .song-name {
     white-space: nowrap;
     overflow: hidden;
@@ -113,9 +118,13 @@ nav {
 .song-list-control-btn {
     right: 0px;
 }
-.song-cover {
-    width: 1.2vw;
-    margin: 0 10px;
+.input-area {
+    width: 100%;
+    display: flex;
+    justify-content: right;
+}
+.song-upload-button{
+    width: 30px;
 }
 .player-gif {
     display: flex;
@@ -123,9 +132,10 @@ nav {
     justify-content: center;
     max-width: 60%;
 }
-#song-gif {
+#player-gif-inner {
     max-width: 90%;
 }
+
 
 
 
