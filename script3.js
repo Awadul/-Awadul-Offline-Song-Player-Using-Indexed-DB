@@ -1,149 +1,8 @@
-let songs = [];
-let db = null;
-let totalSongs = 0 ;
-const request = indexedDB.open("songs", 1)
-request.onupgradeneeded = e => {
-    db = e.target.result
-    db.createObjectStore("mysongs" , {keyPath: "audio"})
-    console.log("upgrade is needed")
-}
-request.onsuccess = e => {
-    db = e.target.result
-    const transaction = db.transaction(["mysongs"], "readonly")
-    const objectStore = transaction.objectStore("mysongs")
-    console.log(objectStore)
-    // show_allSongs(objectStore)
-    console.log(e.target.result)
-    // show_allSongs(db)
-    console.log("there was success")
-    make_list_from_DB();
-}
-request.onerror = () => {
-    console.log("there was an error")
-}
-function addSongtoDB(file){
-    let transaction = db.transaction(["mysongs"], "readwrite")
-    let objectStore = transaction.objectStore("mysongs")
-    let songBlob = new Blob([file], {type: file.type})
-    const song = {songName: file.name, audio: songBlob, id: totalSongs++}
-    const request = objectStore.add(song)
-    request.onsuccess = ()=> {
-        console.log("song has been added successfully")
-        songs.push(song)
-        console.log(totalSongs)
-        // totalSongs++;
-        console.log(totalSongs)
-        update_items_from_Db();
-    }
-}
-let input_File = document.getElementById("input-file")
-input_File.addEventListener("change", (e)=> {
-    const file = e.target.files[0]
-    if (file) {
-        addSongtoDB(file)
-        e.target.value = ''
-    }
-})
-let countAndProcessItems = ()=> {
-    return new Promise ((resolve , reject) => {
-        let tx = db.transaction(["mysongs"], "readonly");
-        let objectStore = tx.objectStore("mysongs")
-        let request = objectStore.openCursor();
-        request.onsuccess = (e)=> {
-            const cursor = e.target.result;
-            // console.log(cursor)
-            if (cursor){
-                songs.push(cursor.value)
-                /* console.log(cursor.value)       // cursor returns the value of the object that was stored in the database */
-                totalSongs++;
-                cursor.continue();
-            } else {
-                resolve (totalSongs)
-                console.log(songs)
-            }
-        }
-        request.onerror = ()=> {
-            reject("error iterating through the object store")
-        }
-    });
-}
-
-async function make_list_from_DB() {
-    try {
-        const totalSongs = await countAndProcessItems(db , "mysongs");
-        console.log("Total items" , totalSongs)
-        show_allSongs();
-    } catch (error ){
-        console.log(error)
-    }
-}
-
-function update_items_from_Db() {
-    // let transaction = db.transaction(["mysong"], "readonly")
-    // let objectStore = transaction.objectStore("mysongs")
-    // let request = objectStore.get(7);
-    // make_list_from_DB();
-    let song_List_Container = document.getElementsByClassName("song-list");
-        const li = document.createElement('li');
-
-        const spanImg = document.createElement('span');
-        const img = document.createElement('img');
-        img.src = `assets/Covers/${2}.jpg`;
-        img.alt = "";
-        img.classList.add('song-cover');
-        spanImg.appendChild(img);
-
-        const spanName = document.createElement('span');
-        spanName.classList.add('song-name');
-        spanName.textContent = songs[totalSongs-1].songName;
-
-        const icon = document.createElement('i');
-        icon.classList.add('fa-solid', 'fa-2x', 'fa-circle-play', 'control-button', 'song-list-control-btn');
-        icon.addEventListener('click', () => {
-            SetAllIcons();  // Reset all icons to play state
-            Play_from_song_List(totalSongs-1, icon);  // Call the function to play the song and update the icon
-        });
-
-        // Create an audio element to get the duration
-        const tempAudio = new Audio(URL.createObjectURL(songs[totalSongs - 1].audio));
-        const dur = document.createElement('span');
-        dur.classList.add('song-duration');
-
-        // Load the audio metadata and get the duration
-        tempAudio.addEventListener('loadedmetadata', () => {
-            const minutes = Math.floor(tempAudio.duration / 60);
-            const seconds = Math.floor(tempAudio.duration % 60);
-            dur.textContent = `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
-        });
-
-        li.appendChild(spanImg);
-        li.appendChild(spanName);
-        li.appendChild(dur);
-        li.appendChild(icon);
-
-        song_List_Container[0].appendChild(li);
-
-}
-// songs = [
-//     {songName: "Aaye Haaye (Official Video)  Karan Aujla, Nora Fatehi, Neha Kakkar, Jay Trak  Bhushan Kumar",           address:"assets/Songs/Aaye Haaye (Official Video)  Karan Aujla, Nora Fatehi, Neha Kakkar, Jay Trak  Bhushan Kumar.mp3"},
-//     {songName: "Dhanda Nyoliwala  Russian Bandana (Music Video)  Deepesh Goyal  VYRL Haryanvi",                         address:"assets/Songs/Dhanda Nyoliwala  Russian Bandana (Music Video)  Deepesh Goyal  VYRL Haryanvi.mp3"},
-//     {songName: "Ishq Ka Raja - Addy Nagar (Official Video)- Hamsar Hayat - New Hindi Songs 2022"   ,                    address:"assets/Songs/Ishq Ka Raja - Addy Nagar (Official Video)- Hamsar Hayat - New Hindi Songs 2022.mp3"},
-// ]
-
-setTimeout(()=> {
-    console.log("for timeout")
-}, 2000)
-
 let masterPlay = document.getElementById("masterPlay");
 let playPrevious = document.getElementById("playPrevious");
 let playNext = document.getElementById("playNext")
 let songIndex = 0 ;
-// let audioElement = new Audio(URL.createObjectURL(songs[songIndex].audio));
-let audioElement ;
-function setAudio_for_first_use(){
-    audioElement = new Audio(URL.createObjectURL(songs[songIndex].audio));
-}
-
+let audioElement = new Audio(songs[songIndex].address);
 let gif = document.getElementById("player-gif-inner")
 let songDisplayList = document.getElementsByClassName("song-name");
 let progressBar = document.getElementsByClassName("progress-bar")
@@ -154,22 +13,18 @@ let timeUpdateProgressBar = () => {
     audioElement.addEventListener("timeupdate", ()=>{
         progress = parseInt((audioElement.currentTime / audioElement.duration ) * 100);
         progressBar[0].value = progress;
-        if (progressBar[0].value == 100){
-            playNext.click()
-        }
     })
 }
 
-let Play_from_song_List = (index, element)=> {
+function Play_from_song_List(index, element) {
     console.log(index)
     console.log(songs[index])
 
     let click_on_different_link = () => {
                 audioElement.pause() // pause the previous song
                 progressBar[0].value = 0 ;  // set the progress bar to zero
-                songIndex = index;  // change the audio to new element
-                audioElement = new Audio(URL.createObjectURL(songs[songIndex].audio))  // load the new song
-                console.log("audio element loaded", audioElement)
+                songIndex = index;  // change the address to new element
+                audioElement = new Audio(songs[songIndex].address)  // load the new song
                 // audioElement.load()     // done loading
                 audioElement.play() // play that song
                 timeUpdateProgressBar();
@@ -177,9 +32,6 @@ let Play_from_song_List = (index, element)=> {
                 element.classList.replace('fa-circle-play', 'fa-circle-pause')      // change list button to play
                 gif.setAttribute("src", "assets/try-cover-2.gif")
                 return ;
-            }
-            if (!audioElement){
-                setAudio_for_first_use();
             }
             if (!audioElement.paused){  // it is running
                 if (index == songIndex ){    // user clicks on the same link
@@ -210,9 +62,6 @@ masterPlay.addEventListener('click', (e)=> {
     if (e.hasOwnProperty('index') && e.index !== undefined){
         Play_from_song_List(e.index, e.element)
     } else {
-        if (!audioElement){
-            setAudio_for_first_use();
-        }
         if (audioElement.paused){
             masterPlay.classList.replace('fa-circle-play', 'fa-circle-pause')
             audioElement.play()
@@ -234,7 +83,7 @@ playNext.addEventListener('click', ()=> {
     audioElement.pause()
     progressBar[0].value = 0 ;  // set the progress bar to zero
     songIndex = songIndex+1 % songs.length
-    audioElement = new Audio(URL.createObjectURL(songs[songIndex].audio))
+    audioElement = new Audio(songs[songIndex].address)
     audioElement.load()
     SetAllIcons()
 })
@@ -246,7 +95,7 @@ playPrevious.addEventListener('click', ()=> {
     if (songIndex < 0){
         songIndex = songIndex + songs.length
     }
-    audioElement = new Audio(URL.createObjectURL(songs[songIndex].audio))
+    audioElement = new Audio(songs[songIndex].address)
     progressBar[0].value = 0 ;  // set the progress bar to zero
     audioElement.load()
     SetAllIcons()
@@ -271,8 +120,21 @@ Array.from(songlist_conrtolBtn).forEach((e, i) => {
     })
 })
 
-function show_allSongs(){
+let show_allSongs = (objectStore)=>{
 
+    // Request to count the total number of entries
+    // objectStore = db.transaction(["mysongs"],"readonly").objectStore("mysongs")
+    console.log(objectStore)
+    const countRequest = objectStore.count();
+
+    countRequest.onsuccess = function() {
+        console.log("Total entries in object store:", countRequest.result);
+        totalSongs = countRequest.result
+    };
+    console.log(totalSongs)
+    countRequest.onerror = function() {
+        console.log("Error counting entries.");
+    };
     let song_List_Container = document.getElementsByClassName("song-list");
 
     for (let i = 0; i < songs.length; i++) {
@@ -297,7 +159,7 @@ function show_allSongs(){
         });
 
         // Create an audio element to get the duration
-        const tempAudio = new Audio(URL.createObjectURL(songs[i].audio));
+        const tempAudio = new Audio(songs[i].address);
         const dur = document.createElement('span');
         dur.classList.add('song-duration');
 
@@ -317,4 +179,4 @@ function show_allSongs(){
     }
 }
 
-// show_allSongs();
+show_allSongs();
