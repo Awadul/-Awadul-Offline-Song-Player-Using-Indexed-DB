@@ -140,12 +140,11 @@ let show_allSongs = (objectStore)=>{
     // objectStore = db.transaction(["mysongs"],"readonly").objectStore("mysongs")
     console.log(objectStore)
     const countRequest = objectStore.count();
-
+    
     countRequest.onsuccess = function() {
-        console.log("Total entries in object store:", countRequest.result);
-        totalSongs = countRequest.result
+        totalSongs = countRequest.result;
     };
-    console.log(totalSongs)
+
     countRequest.onerror = function() {
         console.log("Error counting entries.");
     };

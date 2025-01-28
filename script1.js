@@ -134,21 +134,7 @@ Array.from(songlist_conrtolBtn).forEach((e, i) => {
     })
 })
 
-let show_allSongs = (objectStore)=>{
-
-    // Request to count the total number of entries
-    // objectStore = db.transaction(["mysongs"],"readonly").objectStore("mysongs")
-    console.log(objectStore)
-    const countRequest = objectStore.count();
-
-    countRequest.onsuccess = function() {
-        console.log("Total entries in object store:", countRequest.result);
-        totalSongs = countRequest.result
-    };
-    console.log(totalSongs)
-    countRequest.onerror = function() {
-        console.log("Error counting entries.");
-    };
+function show_allSongs(){
     let song_List_Container = document.getElementsByClassName("song-list");
 
     for (let i = 0; i < songs.length; i++) {
@@ -193,48 +179,7 @@ let show_allSongs = (objectStore)=>{
     }
 }
 
-// show_allSongs();
+show_allSongs();
+// gif.src = "assets/Covers/gif-still.png"
 
 
-let db = null;
-let totalSongs = 0 ;
-const request = indexedDB.open("songs", 1)
-request.onupgradeneeded = e => {
-    db = e.target.result
-    db.createObjectStore("mysongs" , {keyPath: "id"})
-    console.log("upgrade is needed")
-}
-request.onsuccess = e => {
-    db = e.target.result
-    const transaction = db.transaction(["mysongs"], "readonly")
-    const objectStore = transaction.objectStore("mysongs")
-    console.log(objectStore)
-    show_allSongs(objectStore)
-    request.onsuccess = (e)=> {
-        console.log(e.target.result)
-    }
-
-    // show_allSongs(db)
-    console.log("there was success")
-}
-request.onerror = () => {
-    console.log("there was an error")
-}
-function addSongtoDB(file){
-    let transaction = db.transaction(["mysongs"], "readwrite")
-    let objectStore = transaction.objectStore("mysongs")
-    let songBlob = new Blob([file], {type: file.type})
-    const song = {songName: file.name, audio: songBlob, id: totalSongs++}
-    const request = objectStore.add(song)
-    request.onsuccess = ()=> {
-        console.log("song has been added successfully")
-    }
-}
-let input_File = document.getElementById("input-file")
-input_File.addEventListener("change", (e)=> {
-    const file = e.target.files[0]
-    if (file) {
-        addSongtoDB(file)
-        e.target.value = ''
-    }
-})
