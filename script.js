@@ -6,7 +6,8 @@
 let songs = [];
 let db = null;
 let totalSongs = 0 ;
-const request = indexedDB.open("songs", 1)
+let request ;
+request = indexedDB.open("songs", 1)
 request.onupgradeneeded = e => {
     db = e.target.result
     db.createObjectStore("mysongs" , {keyPath: "hash"})
@@ -463,8 +464,14 @@ let Display_Playlists_Div = document.querySelector(".playlists-container")
 function Display_Playlist(playlistName) {
     const playlistDiv = document.createElement("div")
     playlistDiv.classList.add("playlist")
+    playlistDiv.classList.add("playlist-item")
     playlistDiv.innerText = playlistName
     Display_Playlists_Div.appendChild(playlistDiv)
+    playlistDiv.addEventListener("click", (event)=> {
+        console.log(event.srcElement.childNodes[0])
+        playlistName = event.srcElement.childNodes[0]
+
+    })
 }
 function DisplayAll_Playlists() {
     let playlists = indexedDB.open("playlists" /**take version information from the cache */)
@@ -485,3 +492,8 @@ function DisplayAll_Playlists() {
 }
 DisplayAll_Playlists();
 /**End */
+
+/**Checking the functionality of choosing the playlist */
+// function Click_on_Playlist(event) {
+    
+// }
