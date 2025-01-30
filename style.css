@@ -1,6 +1,7 @@
 * {
     padding: 0;
     margin: 0;
+    /* box-sizing: border-box; */
 }
 body {
     /* background-color: bisque; */
@@ -169,6 +170,99 @@ nav {
     background-color: red; /* Adjust color as needed */
     transform: rotate(-50deg); /* Adjust angle if desired */
 }
+
+
+.main-slider {
+    width: 40vh;
+    position: absolute;
+    background-image: linear-gradient(#121214, rgb(1 35 105), #0e1214);
+    z-index: 1;
+    height: 92.1vh;
+    transition: transform 0.25s ease-in-out;
+}
+.main-slider-hide {
+    transform: translateX(-100%);
+}
+.slide-show-option {
+    text-align: right;
+    position: relative;
+    right: 20px;
+    top: 19px;
+    transition: transform 0.3s ease-in-out;
+}
+.slide-hide-option {
+    transform: translateX(200%);
+}
+
+.song-playlists {
+    padding-top: 1.5em;
+    transition: width 0.25s ease-out;
+    overflow: hidden;
+    box-sizing: border-box;
+}
+.song-playlists h3 {
+    padding-left: 1.5em;
+    font-family: Arial, Helvetica, sans-serif;
+    padding-bottom: 1.5em;
+    background: linear-gradient(90deg, #082ac2, #feb47b);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+.add-playlist {
+    position: relative;
+    text-align: right;
+    right: 10px;
+    margin-bottom: 1em;
+    /* top: 10px; */
+}
+
+
+.playlists-container {
+    position: relative;
+    overflow-y: scroll;
+    height: 48vh;
+}
+.playlists-container::-webkit-scrollbar {
+    width: 3px;
+    height: 13px;
+  }
+.playlists-container::-webkit-scrollbar-thumb {
+    background: linear-gradient(13deg, #6a61bb 14%, #3b4cc9 64%);
+    border-radius: 10px;
+  }
+.playlists-container::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(13deg, #acb6ff 14%, #4d2e52 64%);
+  }
+.playlists-container::-webkit-scrollbar-track {
+    background: #ffffff;
+    border-radius: 10px;
+    box-shadow: inset 7px 10px 12px #0e1135;
+}
+.playlist {
+    color: rgb(51, 128, 121);
+    width: 90%;
+    height: 3em ;
+    display: flex;
+    justify-content: left;
+    align-items: center;
+    padding: 0.3em 0.7em 0 0.7em;
+    border: 2px solid blue;
+    border-radius: 50px;
+    margin-bottom: 0.15em;
+    transition: transform 0.25s ease-out;
+    overflow: hidden;
+
+}
+
+.hide-song-playlists {
+    transform: translateX(-100%);
+}
+
+
+
+
+
+
 
 
 

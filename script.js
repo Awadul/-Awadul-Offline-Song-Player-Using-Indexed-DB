@@ -397,3 +397,91 @@ repeatSong[0].addEventListener("click", ()=> {
         repeatSong[0].classList.remove("repeat-song-style")
     }
 })
+
+/* Handling Slider */
+let slide_container = document.querySelector(".main-slider")
+let slide_option = document.querySelector(".slide-option")
+slide_option.addEventListener("click", ()=> {
+    slide_container.classList.toggle("main-slider-hide")
+    const slider_option_rect = slide_option.getBoundingClientRect();
+    console.log(slider_option_rect)
+    setTimeout(()=> {
+        slide_option.classList.toggle("slide-hide-option")
+    }, 170)
+    console.log(slider_option_rect)
+    console.log("clicked")
+})
+/**End slider */
+/**handling cache */
+
+/** Handling playlist add  */
+let addPlaylistButton = document.querySelector(".add-playlist")
+addPlaylistButton.addEventListener("click", ()=> {
+
+    console.log("set database")
+    let newObjectSource = prompt("Enter the name of the playlist::", "none")
+    
+    if (newObjectSource){
+        let playList_version;
+        let playlists = indexedDB.open("playlists" /**take version information from the cache */)
+        playlists.onsuccess = (event)=> {
+            console.log("database opened successfully for playlists")
+
+            playList_version = parseInt(event.target.result.version)
+            console.log(playList_version)
+
+            event.target.result.close();
+        }
+        setTimeout(()=> {
+            let updatedplaylists = indexedDB.open("playlists" , playList_version + 1 )
+                updatedplaylists.onupgradeneeded = (event)=> {
+                    let playlistDB = event.target.result
+                    if (!playlistDB.objectStoreNames.contains(newObjectSource)) {
+                        playlistDB.createObjectStore(newObjectSource)
+                        Display_Playlist(newObjectSource);
+                    } else {
+                        alert("Playlist already exists")
+                    }
+                }
+                updatedplaylists.onsuccess = (event)=> {
+                    console.log("database opened successfully for playlists")
+                    playList_version = parseInt(event.target.result.version)
+                    console.log(playList_version)
+                    event.target.result.close();
+                }
+        },50)
+        playlists.onerror = ()=> {
+            alert("couldn't load playlists")
+        }
+    }
+});
+/**End playlist add */
+
+
+/**Handing Display of playlists */
+let Display_Playlists_Div = document.querySelector(".playlists-container")
+function Display_Playlist(playlistName) {
+    const playlistDiv = document.createElement("div")
+    playlistDiv.classList.add("playlist")
+    playlistDiv.innerText = playlistName
+    Display_Playlists_Div.appendChild(playlistDiv)
+}
+function DisplayAll_Playlists() {
+    let playlists = indexedDB.open("playlists" /**take version information from the cache */)
+    playlists.onsuccess = (event)=> {
+        Playlistsdb = event.target.result
+        let dbNames = Playlistsdb.objectStoreNames
+        console.log("database opened successfully for playlists")
+        // console.log("These are all of the Playlists" , dbNames[0])
+        for (let i = 0 ; i < dbNames.length ; i++){
+            Display_Playlist(dbNames[i])
+        }
+        // console.log("These are all of the Playlists" )
+        playList_version = parseInt(event.target.result.version)
+        console.log(playList_version)
+
+        event.target.result.close();
+    }
+}
+DisplayAll_Playlists();
+/**End */

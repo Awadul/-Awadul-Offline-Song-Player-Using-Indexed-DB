@@ -397,3 +397,18 @@ repeatSong[0].addEventListener("click", ()=> {
         repeatSong[0].classList.remove("repeat-song-style")
     }
 })
+
+/* Handling Slider */
+let slide_container = document.querySelector(".main-slider")
+let slide_option = document.querySelector(".slide-option")
+slide_option.addEventListener("click", ()=> {
+    slide_container.classList.toggle("main-slider-hide")
+    const slider_option_rect = slide_option.getBoundingClientRect();
+    console.log(slider_option_rect)
+    setTimeout(()=> {
+        slide_option.classList.toggle("slide-hide-option")
+    }, 170)
+    console.log(slider_option_rect)
+    console.log("clicked")
+})
+/**End slider */
