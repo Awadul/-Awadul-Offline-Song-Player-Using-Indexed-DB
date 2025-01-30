@@ -7,13 +7,14 @@ let songs = [];
 let db = null;
 let totalSongs = 0 ;
 let request ;
+// function first_load_songs_display(){}
 request = indexedDB.open("songs", 1)
-request.onupgradeneeded = e => {
+request.onupgradeneeded = (e) => {
     db = e.target.result
     db.createObjectStore("mysongs" , {keyPath: "hash"})
     console.log("upgrade is needed")
 }
-request.onsuccess = e => {
+request.onsuccess = (e) => {
     db = e.target.result
     const transaction = db.transaction(["mysongs"], "readonly")
     const objectStore = transaction.objectStore("mysongs")
@@ -23,6 +24,7 @@ request.onsuccess = e => {
     // show_allSongs(db)
     console.log("there was success")
     make_list_from_DB();
+    // e.target.result.close();
 }
 request.onerror = () => {
     console.log("there was an error")
@@ -418,43 +420,7 @@ slide_option.addEventListener("click", ()=> {
 /** Handling playlist add  */
 let addPlaylistButton = document.querySelector(".add-playlist")
 addPlaylistButton.addEventListener("click", ()=> {
-
-    console.log("set database")
-    let newObjectSource = prompt("Enter the name of the playlist::", "none")
     
-    if (newObjectSource){
-        let playList_version;
-        let playlists = indexedDB.open("playlists" /**take version information from the cache */)
-        playlists.onsuccess = (event)=> {
-            console.log("database opened successfully for playlists")
-
-            playList_version = parseInt(event.target.result.version)
-            console.log(playList_version)
-
-            event.target.result.close();
-        }
-        setTimeout(()=> {
-            let updatedplaylists = indexedDB.open("playlists" , playList_version + 1 )
-                updatedplaylists.onupgradeneeded = (event)=> {
-                    let playlistDB = event.target.result
-                    if (!playlistDB.objectStoreNames.contains(newObjectSource)) {
-                        playlistDB.createObjectStore(newObjectSource)
-                        Display_Playlist(newObjectSource);
-                    } else {
-                        alert("Playlist already exists")
-                    }
-                }
-                updatedplaylists.onsuccess = (event)=> {
-                    console.log("database opened successfully for playlists")
-                    playList_version = parseInt(event.target.result.version)
-                    console.log(playList_version)
-                    event.target.result.close();
-                }
-        },50)
-        playlists.onerror = ()=> {
-            alert("couldn't load playlists")
-        }
-    }
 });
 /**End playlist add */
 
@@ -463,14 +429,41 @@ addPlaylistButton.addEventListener("click", ()=> {
 let Display_Playlists_Div = document.querySelector(".playlists-container")
 function Display_Playlist(playlistName) {
     const playlistDiv = document.createElement("div")
-    playlistDiv.classList.add("playlist")
-    playlistDiv.classList.add("playlist-item")
+    playlistDiv.classList.add("playlist", "playlist-item")
     playlistDiv.innerText = playlistName
     Display_Playlists_Div.appendChild(playlistDiv)
     playlistDiv.addEventListener("click", (event)=> {
-        console.log(event.srcElement.childNodes[0])
-        playlistName = event.srcElement.childNodes[0]
+        console.log(event.target.innerHTML)
+        playlistName = event.target.innerHTML
 
+        songs = []
+        db = null;
+        let songsDB_version;
+        let request = indexedDB.open("songs" /**take version information from the cache */)
+        console.log(request)
+        request.onsuccess = (event)=> {
+            console.log("database opened successfully for songs")
+
+            songsDB_version = parseInt(event.target.result.version)
+            console.log(songsDB_version)
+
+            event.target.result.close();
+            let updatedsongs = indexedDB.open("songs" , songsDB_version + 1 )
+                updatedsongs.onupgradeneeded = (event)=> {
+                    let songDB = event.target.result
+                    let songDB_version = songDB.version
+                    console.log("there is upgrade needed in songs database for playlist")
+                }
+                updatedsongs.onsuccess = (event)=> {
+                    console.log("database opened successfully for songs again")
+                    playList_version = parseInt(event.target.result.version)
+                    console.log(songDB_version)
+                    event.target.result.close();
+                }
+        }
+        request.onerror = ()=> {
+            alert("couldn't load playlists")
+        }
     })
 }
 function DisplayAll_Playlists() {
