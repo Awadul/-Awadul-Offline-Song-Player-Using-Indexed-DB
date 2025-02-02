@@ -15,8 +15,7 @@ nav {
     flex-direction: row;
     align-items: center;
     height: 10vh;
-    /* background-image: linear-gradient(rgb(2 32 105), #0773d4); */
-    background-image: linear-gradient(rgb(83 94 102), #171a1f);
+    background-image: linear-gradient(rgb(2 32 105), #0773d4);
 }
 .nav-item {
     padding: 0 0.4em;
@@ -33,7 +32,7 @@ nav {
     justify-content: center;
 }
 .bottom {
-    background-image: linear-gradient(rgb(12 15 21), rgb(17 21 28));
+    background-image: linear-gradient(rgb(2 32 105), #0773d4);
     bottom: 0;
     position: sticky;
     height: 14vh;
@@ -49,48 +48,6 @@ nav {
 .progress-bar {
     width: 80% ;
 }
-.progress-bar {
-    -webkit-appearance: none;
-    width: 80%;
-    height: 0.4em;
-    border-radius: 50px;
-    background-image: linear-gradient(rgb(94, 94, 55), rgb(19 22 27));
-    box-shadow: 3px 3px 6px #000,
-    inset 1px 1px 1px #909090;
-}
-.progress-bar::-webkit-slider-runnable-track {
-    width: 100%;
-    height: 8px;
-    background: transparent; /* use the main background instead */
-  }
-.progress-bar::-webkit-slider-thumb {
-     -webkit-appearance: none;
-      position: relative;
-      z-index: 3;
-      /* background-image: linear-gradient(rgb(75, 75, 64), rgb(87, 58, 58)); */
-      width: 1em;
-      height: 1em;
-      bottom: 2px;
-      border-radius: 100px;
-      cursor: pointer;
-      transition: background-image 2s linear;
-  }
-.progress-bar:hover::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    position: relative;
-    z-index: 3;
-    background-image: linear-gradient(rgb(146, 146, 82), rgb(87, 58, 58));
-    width: 1em;
-    height: 1em;
-    bottom: 2px;
-    border-radius: 100px;
-    cursor: pointer;
-}
-
-
-
-
-
 .main-controller {
     display: flex;
     gap: 15%;
@@ -107,7 +64,7 @@ nav {
     /* display: flex; */
     width: 100%;
     /* background-image: linear-gradient(rgb(28, 74, 199), rgb(125, 180, 202)); */
-    background-image: url("/assets/music-player-3.jpg");
+    background-image: url("/assets/music-player-2.jpg");
     /* background-repeat: ; */
 }
 .main-body {
@@ -132,7 +89,6 @@ nav {
     max-width: 80%;
     list-style: none;
     /* padding-top: 20px; */
-    /* overflow: hidden; */
 }
 .song-list li {
     margin: 5px 0;
@@ -143,11 +99,8 @@ nav {
     padding: 10px;
     color: rgb(188, 184, 202);
     display: flex;
-    justify-content: space-around;
-    gap: 0.1rem;
+    justify-content: space-between;
     align-items: center;
-    /* overflow: hidden; */
-    position: relative;
 
 }
 .song-list li span {
@@ -222,8 +175,8 @@ nav {
 .main-slider {
     width: 40vh;
     position: absolute;
-    background-image: linear-gradient(#121214, rgb(16 19 24), #0e1214);
-    z-index: 10;
+    background-image: linear-gradient(#121214, rgb(1 35 105), #0e1214);
+    z-index: 1;
     height: 92.1vh;
     transition: transform 0.25s ease-in-out;
 }
@@ -247,21 +200,18 @@ nav {
     overflow: hidden;
     box-sizing: border-box;
 }
-
 .song-playlists h3 {
     padding-left: 1.5em;
     font-family: Arial, Helvetica, sans-serif;
     padding-bottom: 1.5em;
-    /* background: linear-gradient(90deg, #082ac2, #feb47b); */
-    background: linear-gradient(90deg, #31333f, #efa973);
+    background: linear-gradient(90deg, #082ac2, #feb47b);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
 }
 .add-playlist {
     position: relative;
-    width: 40px;
     text-align: right;
-    left: 85%;
+    right: 10px;
     margin-bottom: 1em;
     /* top: 10px; */
 }
@@ -289,15 +239,14 @@ nav {
     box-shadow: inset 7px 10px 12px #0e1135;
 }
 .playlist {
-    font-size: 1.07rem;
-    color: #694257;
+    color: rgb(51, 128, 121);
     width: 90%;
     height: 3em ;
     display: flex;
     justify-content: left;
     align-items: center;
     padding: 0.3em 0.7em 0 0.7em;
-    border: 2px solid #1a1a25;
+    border: 2px solid blue;
     border-radius: 50px;
     margin-bottom: 0.15em;
     transition: transform 0.25s ease-out;
@@ -306,71 +255,7 @@ nav {
     /* z-index: ; */
 }
 .playlist:hover {
-    /* background-image: linear-gradient(#121214 , #0f0f25) ; */
-    background-image: linear-gradient(#050506, #262631) ;
-}
-.delete-div-playlist {
-    position: relative;
-    background-color: white;
-    height: 120%;
-    width: 0%;
-    opacity: 0;
-    display: flex;
-    justify-content: center;
-    /* left: 10%; */
-    transform: translateX(-100%);
-
-    transition: transform 0.25s ease-out, opacity 0.25s ease-out, width 0.25s ease-out; /* Added 's' for seconds */
-
-}
-.delete-div-playlist.visible {
-    width: 20%;
-    transform: translateX(-40%);
-    opacity: 1;
-}
-.delete-icon {
-    /* background-color: red; */
-    position: relative;
-    right: 0;
-    top: 35%;
-    left: 50%;
-}
-.fa-trash {
-    transform: translateX(-110%);
-    /* inset: 0; */
-}
-.playlist-text-container {
-    width: 100%;
-    height: 100%;
-    display: flex;
-    justify-content: flex-start;
-    align-items: center;
-}
-.playlist-text-container p {
-    font-family: Arial, Helvetica, sans-serif;
-    font-size: large;
-    background: linear-gradient(to right , rgb(109, 109, 161) , rgb(95, 57, 57) );
-    color: transparent;
-    -webkit-background-clip: text;
-}
-
-
-
-.delete-div-song {
-    position: absolute;
-    z-index: 3;
-    height: 70%;
-    left: -0.1rem;
-    top: 10%;
-    width: 1%;
-    display: flex;
-    justify-content: flex-end;
-    /* overflow: hidden; */
-    background-color: white;
-}
-.delete-div-song:hover {
-    /* transform: translate(-70%, 0); */
-    width: 8%;
+    background-image: linear-gradient(#121214 , #0f0f25) ;
 }
 .playlist-animation::before {
     content: '';
@@ -382,9 +267,7 @@ nav {
     border-radius: 50px;
     width: 110%;
     height: 110%;
-    /* background: linear-gradient(#2e545e, rgb(25, 21, 87)); */
     background: linear-gradient(#2e545e, rgb(25, 21, 87));
-    
     animation: rotate 4s linear infinite;
 }
 .playlist-animation::after {
@@ -394,8 +277,7 @@ nav {
     inset: 0.09rem;
     border-radius: 50px;
     /* background-image: linear-gradient(#121214 , #0f0f25) ; */
-    background-image: linear-gradient(#121214, #121218) ;
-    /* background-color: #042059; */
+    background-color: #042059;
     transition: background-color 2s linear;
 }
 @keyframes rotate {
