@@ -1,7 +1,7 @@
 // songs = [
-//     {songName: "Aaye Haaye (Official Video)  Karan Aujla, Nora Fatehi, Neha Kakkar, Jay Trak  Bhushan Kumar",   address:"assets/Songs/Aaye Haaye (Official Video)  Karan Aujla, Nora Fatehi, Neha Kakkar, Jay Trak  Bhushan Kumar.mp3"},
-//     {songName: "Dhanda Nyoliwala  Russian Bandana (Music Video)  Deepesh Goyal  VYRL Haryanvi",                 address:"assets/Songs/Dhanda Nyoliwala  Russian Bandana (Music Video)  Deepesh Goyal  VYRL Haryanvi.mp3"},
-//     {songName: "Ishq Ka Raja - Addy Nagar (Official Video)- Hamsar Hayat - New Hindi Songs 2022"   ,            address:"assets/Songs/Ishq Ka Raja - Addy Nagar (Official Video)- Hamsar Hayat - New Hindi Songs 2022.mp3"},
+    //     {songName: "Aaye Haaye (Official Video)  Karan Aujla, Nora Fatehi, Neha Kakkar, Jay Trak  Bhushan Kumar",   address:"assets/Songs/Aaye Haaye (Official Video)  Karan Aujla, Nora Fatehi, Neha Kakkar, Jay Trak  Bhushan Kumar.mp3"},
+    //     {songName: "Dhanda Nyoliwala  Russian Bandana (Music Video)  Deepesh Goyal  VYRL Haryanvi",                 address:"assets/Songs/Dhanda Nyoliwala  Russian Bandana (Music Video)  Deepesh Goyal  VYRL Haryanvi.mp3"},
+    //     {songName: "Ishq Ka Raja - Addy Nagar (Official Video)- Hamsar Hayat - New Hindi Songs 2022"   ,            address:"assets/Songs/Ishq Ka Raja - Addy Nagar (Official Video)- Hamsar Hayat - New Hindi Songs 2022.mp3"},
 // ]
 
 
@@ -12,12 +12,7 @@ function openSongsConnection(){
         request = indexedDB.open("songs")
         request.onsuccess = (e) => {
             db = e.target.result
-            // show_allSongs(objectStore)
-            console.log(e.target.result)
-            // show_allSongs(db)
-            console.log("there was success")
             resolve(db)
-            // e.target.result.close();
         }
     })
 }
@@ -25,12 +20,9 @@ function openPlaylistConnection() {
     return new Promise((resolve, reject)=> {
         let playlistDB_request = indexedDB.open("playlists")
         playlistDB_request.onsuccess = (event)=> {
-            let playlist_db = event.target.result
-            console.log(playlist_db)
-            resolve(playlist_db)
+            resolve(event.target.result)
         }
         playlistDB_request.onerror = (e)=> {
-            console.log("error in opening playlist db")
             reject(e.target.result.close())
         }
     })
@@ -38,31 +30,43 @@ function openPlaylistConnection() {
 
 /**End untility Functions */
 
-
-/** Handling operations on page load*/ 
-// let db = null;
-// let playlistRequest ;
 let songs = [];
+let songIndex = 0 ;
 let totalSongs = 0 ;
+let audioElement ;
 
+let masterPlay = document.getElementById("masterPlay");
+let playPrevious = document.getElementById("playPrevious");
+let playNext = document.getElementById("playNext")
+let gif = document.getElementById("player-gif-inner")
+let songDisplayList = document.getElementsByClassName("song-name");
+let progressBar = document.getElementsByClassName("progress-bar")
+let progress = 0;
+let songlist_conrtolBtn = document.getElementsByClassName("song-list-control-btn");
+let loopOption = document.getElementById("loopOption") /*Checks if user has clicked the loop option or shuffle option */
+let loopIcon = document.getElementById("loop-icon")
+let loop = true; /*User has true: loop or false: shuffle */
+let repeatSong = document.querySelector(".repeat-song")
+let repeatSame = true;
+
+
+function setAudio_for_first_use(){
+    audioElement = new Audio(URL.createObjectURL(songs[songIndex].audio));
+}
 
 function first_load_songs_display(){
     let request ;
     request = indexedDB.open("songs")
     request.onupgradeneeded = (e) => {
         db = e.target.result
-        // if (!db.objectStoreNames.contains())
         db.createObjectStore("mysongs" , {keyPath: "hash"})
-        console.log("There was no database for songs so we created one for first time user");
         let customEvent = new Event("click");
         customEvent.playlist_name = "mysongs";
         addPlaylistButton.dispatchEvent(customEvent);
     }
     request.onsuccess = (e) => {
         db = e.target.result
-        // console.log("These are object stores in song db at load" , db.objectStoreNames[0])
         if (db.objectStoreNames[0] !== undefined){
-            // console.log("there was success")
             make_list_from_DB();
         }
         e.target.result.close();
@@ -98,11 +102,7 @@ function addSongtoDB(file){
                 const request = objectStore.add(song)
                 request.onsuccess = ()=> {
                     totalSongs++;
-                    console.log("song has been added successfully to song database")
                     songs.push(song)
-                    console.log(totalSongs)
-                    // totalSongs++;
-                    console.log(totalSongs)
                     update_items_from_Db();
                     db.close()
                 }
@@ -155,12 +155,11 @@ let countAndProcessItems = ()=> {
             const cursor = e.target.result;
             if (cursor){
                 songs.push(cursor.value)
-                /* console.log(cursor.value)       // cursor returns the value of the object that was stored in the database */
                 totalSongs++;
                 cursor.continue();
             } else {
                 resolve (totalSongs)
-                console.log(songs)
+                // console.log(songs)
             }
         }
         request.onerror = ()=> {
@@ -178,37 +177,11 @@ async function make_list_from_DB() {
         console.log(error)
     }
 }
-/**
- * Function to Work when we are trying to save a song to Object-Store
- */
+
 function update_items_from_Db() {
     show_allSongs(songs[totalSongs-1])
 }
-/**
- * Successfully save the song
- */
-// setTimeout(()=> {
-//     console.log("for timeout")
-// }, 2000)
 
-let masterPlay = document.getElementById("masterPlay");
-let playPrevious = document.getElementById("playPrevious");
-let playNext = document.getElementById("playNext")
-let songIndex = 0 ;
-let audioElement ;
-let gif = document.getElementById("player-gif-inner")
-let songDisplayList = document.getElementsByClassName("song-name");
-let progressBar = document.getElementsByClassName("progress-bar")
-let progress = 0;
-let songlist_conrtolBtn = document.getElementsByClassName("song-list-control-btn");
-let loopOption = document.getElementById("loopOption") /*Checks if user has clicked the loop option or shuffle option */
-let loopIcon = document.getElementById("loop-icon")
-let loop = true; /*User has true: loop or false: shuffle */
-let repeatSong = document.querySelector(".repeat-song")
-let repeatSame = true;
-function setAudio_for_first_use(){
-    audioElement = new Audio(URL.createObjectURL(songs[songIndex].audio));
-}
 let timeUpdateProgressBar = () => {
     audioElement.addEventListener("timeupdate", ()=>{
         progress = parseInt((audioElement.currentTime / audioElement.duration ) * 100);
@@ -220,53 +193,66 @@ let timeUpdateProgressBar = () => {
     })
 }
 
-let Play_from_song_List = (index, element)=> {
-    // console.log(element)
-    console.log(index)
-    console.log(songs[index])
+let Play_from_song_List = (index, element) => {
+    console.log(index);
+    console.log(songs[index]);
 
     let click_on_different_link = () => {
-                audioElement.pause() // pause the previous song
-                progressBar[0].value = 0 ;  // set the progress bar to zero
-                songIndex = index;  // change the audio to new element
-                audioElement = new Audio(URL.createObjectURL(songs[songIndex].audio))  // load the new song
-                console.log("audio element loaded", audioElement)
-                // audioElement.load()     // done loading
-                audioElement.play() // play that song
-                timeUpdateProgressBar();
-                masterPlay.classList.replace('fa-circle-play', 'fa-circle-pause')   // change main button to play
-                element.classList.replace('fa-circle-play', 'fa-circle-pause')      // change list button to play
-                gif.setAttribute("hidden")
-                gif.setAttribute("src", "assets/try-cover-5.gif")
-                return ;
-            }
-            if (!audioElement){
-                setAudio_for_first_use();
-            }
-            if (!audioElement.paused){  // it is running
-                if (index == songIndex ){    // user clicks on the same link
-                    audioElement.pause()    // pause the song
-                    element.classList.replace('fa-circle-pause', 'fa-circle-play')  // change the list player button to stop
-                    gif.setAttribute("src", "assets/try-cover-5-pause.gif")
-                    masterPlay.classList.replace('fa-circle-pause', 'fa-circle-play')   // change the main player button to stop
-                    return ;
-            } else {    // user clicks on the different link
-                click_on_different_link();  // scenario if user clicks on different links
-            }
-        } else if (audioElement.paused){    // it is not running
-            if (index == songIndex ){    // user clicks on the same link
-                audioElement.play()    // pause the song
-                timeUpdateProgressBar();
-                masterPlay.classList.replace('fa-circle-play', 'fa-circle-pause')   // change the main player button to stop
-                element.classList.replace('fa-circle-play', 'fa-circle-pause')  // change the list player button to stop
-                gif.setAttribute("src", "assets/try-cover-5.gif")
-                return ;
-            } else {    // user clicks on the different link
-                click_on_different_link();  // scenario if user clicks on different links
-            }
+        audioElement.pause(); // pause the previous song
+        progressBar[0].value = 0;  // set the progress bar to zero
+        songIndex = index;  // change the audio to new element
+        audioElement = new Audio(URL.createObjectURL(songs[songIndex].audio));  // load the new song
+        audioElement.play(); // play that song
+        timeUpdateProgressBar();
+        masterPlay.classList.replace('fa-circle-play', 'fa-circle-pause');  // change main button to play
+        element.classList.replace('fa-circle-play', 'fa-circle-pause');  // change list button to play
+        gif.setAttribute("src", "assets/try-cover-5.gif");
+        return;
+    }
+
+    if (!audioElement) {
+        setAudio_for_first_use();
+    }
+
+    if (!audioElement.paused) {  // it is running
+        if (index == songIndex) {  // user clicks on the same link
+            audioElement.pause();  // pause the song
+            element.classList.replace('fa-circle-pause', 'fa-circle-play');  // change the list player button to stop
+            gif.setAttribute("src", "assets/try-cover-5-pause.gif");
+            masterPlay.classList.replace('fa-circle-pause', 'fa-circle-play');  // change the main player button to stop
+            return;
+        } else {  // user clicks on a different link
+            click_on_different_link();  // scenario if user clicks on different links
         }
+    } else if (audioElement.paused) {  // it is not running
+        if (index == songIndex) {  // user clicks on the same link
+            audioElement.play();  // play the song
+            timeUpdateProgressBar();
+            masterPlay.classList.replace('fa-circle-play', 'fa-circle-pause');  // change the main player button to play
+            element.classList.replace('fa-circle-play', 'fa-circle-pause');  // change the list player button to play
+            gif.setAttribute("src", "assets/try-cover-5.gif");
+            return;
+        } else {  // user clicks on a different link
+            click_on_different_link();  // scenario if user clicks on different links
+        }
+    }
 };
 
+let togglePlayPause = (toToggle) => {
+    if (audioElement.paused) {
+        toToggle.classList.toggle("fa-circle-play");
+        toToggle.classList.toggle("fa-circle-pause");
+        audioElement.play();
+        timeUpdateProgressBar();
+        gif.setAttribute("src", "assets/try-cover-5.gif");
+    } else {
+        toToggle.classList.toggle("fa-circle-pause");
+        toToggle.classList.toggle("fa-circle-play");
+        audioElement.pause();
+        gif.setAttribute("src", "assets/try-cover-5-pause.jpg");
+        SetAllIcons();
+    }
+};
 
 masterPlay.addEventListener('click', (e)=> {
     if (e.hasOwnProperty('index') && e.index !== undefined){
@@ -275,20 +261,11 @@ masterPlay.addEventListener('click', (e)=> {
         if (!audioElement){
             setAudio_for_first_use();
         }
-        if (audioElement.paused){
-            masterPlay.classList.replace('fa-circle-play', 'fa-circle-pause')
-            songlist_conrtolBtn.item(songIndex).classList.replace('fa-circle-play', 'fa-circle-pause')
-            audioElement.play()
-            timeUpdateProgressBar();
-            gif.setAttribute("src", "assets/try-cover-5.gif")
-        } else {
-            masterPlay.classList.replace('fa-circle-pause', 'fa-circle-play')
-            audioElement.pause()
-            gif.setAttribute("src", "assets/try-cover-5-pause.jpg")
-            SetAllIcons()
-        }
+        togglePlayPause(masterPlay)
+        togglePlayPause(song_List_Container.item(songIndex))
     }
 })
+
 progressBar[0].addEventListener('change' , ()=> {
     audioElement.currentTime = (progressBar[0].value * audioElement.duration) / 100
     progressBar[0].style.background = `linear-gradient(to right, rgb(0,0,0),  rgb(156, 156, 92) ${progress}%, black ${progress}%)`;
@@ -377,13 +354,8 @@ function songs_UI_generator (song_List_Container , song , i){
                     cursorRequest.onsuccess = (e)=> {
                         let cursor = e.target.result
                         if (cursor){
-                            // console.log("song item temp", cursor)
-                            // console.log("song item name\n",  cursor.value.songName)
-                            // console.log("li item name\n" ,  li_songName)
-                            // console.log("song item temp", cursor.value.audio)
                             if (cursor.value.songName.replaceAll(" ", "") == li_songName){
                                 console.log("item deleted from song database successfully")
-                                
                                 songs.splice(songs.indexOf(cursor.value), 1)
                                 totalSongs--;
                                 cursor.delete();
@@ -417,13 +389,7 @@ function songs_UI_generator (song_List_Container , song , i){
                     cursorRequest.onsuccess = (event)=> {
                         let cursor = event.target.result
                         if (cursor){
-                            // console.log("in-playlist song item temp", cursor)
-                            // console.log("in-playlist song item temp\n",  cursor.value.songName)
-                            // console.log("li item name\n" ,  li_songName)
-                            // console.log("song item temp", cursor.value.audio)
-                            if (cursor.value.songName.replaceAll(" ", "") == li_songName){
-                                
-                                // songs.splice(songs.indexOf(cursor.value), 1)
+                            if (cursor.value.songName.replaceAll(" ", "") == li_songName){                                
                                 console.log("item deleted from playlist database successfully")
                                 console.log(cursor.value)
                                 let deleteRequest = cursor.delete()
@@ -431,7 +397,6 @@ function songs_UI_generator (song_List_Container , song , i){
                                     console.log("cursor deleted successfuly")
                                     playlist_db.close();
                                 }
-                                // event.target.parentNode.parentNode.remove()
                             } else {
                                 cursor.continue();
                             }
@@ -712,6 +677,7 @@ let toggle_All_Playlist_Animation = () => {
         element.classList.remove("playlist-animation")
     })
 }
+
 function Display_Playlist(playlistName) {
     const playlistDiv = document.createElement("div")
     const DeleteDiv = document.createElement("div")
@@ -844,7 +810,7 @@ function Display_Playlist(playlistName) {
     });
 }
 function DisplayAll_Playlists() {
-    let playlists = indexedDB.open("playlists" /**take version information from the cache */)
+    let playlists = indexedDB.open("playlists")
     playlists.onupgradeneeded = (e)=> {
         let db = e.target.result 
         db.createObjectStore("mysongs", {keyPath: "hash"})
@@ -857,10 +823,9 @@ function DisplayAll_Playlists() {
         for (let i = 0 ; i < dbNames.length ; i++){
             Display_Playlist(dbNames[i])
         }
-        // console.log("These are all of the Playlists" )
-        playList_version = parseInt(event.target.result.version)
-        console.log(playList_version)
-        event.target.result.close();
+        // playList_version = parseInt(Playlistsdb.version)
+        // console.log(playList_version)
+        Playlistsdb.close();
     }
 }
 DisplayAll_Playlists();
