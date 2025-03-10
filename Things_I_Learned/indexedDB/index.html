@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <h1>Let's learn about indexed DB</h1>
+    <span>DB_Name<input type="text" value="sbooks" class="dbName"></span>
+    <span>DB_Version<input type="number" value="2" class="dbVersion"></span>
+    <button class="submit-btn">Submit</button>
+    <button id="add-book">add Book</button>
+
+    <script>
+
+    let submitBTN = document.getElementsByClassName("submit-btn")
+    let db = null ; /*To keep a global record of the database if you need to */
+    let add_Books = document.getElementById("add-book") /*To add object in the objectStore of the database*/
+    add_Books.addEventListener("click", Add_in_object_store)
+    // console.log(submitBTN)
+    let createDB = (dbName , dbVAlue) => {
+            // indexedDb uses the client local browser space for storing data 
+        // to open a database 
+        console.log(dbVAlue.value)
+        const request = indexedDB.open(dbName.value,+dbVAlue.value) /* indexedDB.open(databaseName , version ) it return a request -> asynchronus API*/
+        /*You can't open a database with a version less than the current version of the database, though you can update the version of the database*/
+
+
+        // when we open a database there are supposedly three events happening 
+        // if the database exists and there is a new version of database that needs to be added 
+        request.onupgradeneeded = e =>{
+            db = e.target.result      /* On upgrade needed the event that gets fired targets the database as the result whose name was given in the open()  */
+            // console.log(db)
+            /*let m_book = {
+                title: "how to win friends and influence people", 
+                author: "dale carnegie",
+            }*/
+           /*We can create the ObjectStore only in the onupgradeneeded function call and not on the success of the open() function call*/
+            const myBooks = db.createObjectStore("my-books", {keyPath: "author"}) /* The database now need tables aka ObjectStore to store information in tuples aka in objects with keys*/
+                                                /* The second parameter defined the primary key that we want to keep to search for tuples aka objectStore elements*/
+            /*Object Store won't be ready to use directly in this function as of asynchronous behaviour*/
+
+            alert("There is a new version of database available")
+        }
+        // if the database exists and is uptodate
+        request.onsuccess = e => {
+            db = e.target.result      /* On upgrade needed the event that gets fired targets the database as the result whose name was given in the open()  */
+            alert("database opened succesfully")
+        }
+        // if there is an error in opening the database 
+        request.onerror = e => {
+            console.log("hello")
+            alert("There was an error opening the database")
+        }
+    }
+    submitBTN[0].addEventListener("click", ()=> {
+        let dbName = document.getElementsByClassName("dbName")
+        console.log(dbName)
+        let dbVAlue = document.getElementsByClassName("dbVersion")
+        createDB(dbName[0], dbVAlue[0])
+    });
+    
+    function Add_in_object_store() {
+        let m_book = {
+            title: "how to win friends and influence people", 
+            author: "dale carnegie",
+        }
+        const tx = db.transaction(["my-books"], "readwrite")
+                            /*The first parametere defines the table we are trying to access the object aka tuple and the second one defines the mode if we are only in read mode or the readwrite both */
+        const objstore = tx.objectStore("my-books")
+
+        objstore.add(m_book)
+    }
+    
+    </script>
+</body>
+</html>
