@@ -8,24 +8,28 @@
 
 /**Utitity Functions */
 function openSongsConnection(){
-    return new Promise((resolve, reject)=> {
-        request = indexedDB.open("songs")
+    return new Promise((resolve, reject) => {
+        const request = indexedDB.open("songs");
         request.onsuccess = (e) => {
-            db = e.target.result
-            resolve(db)
-        }
-    })
+            const db = e.target.result;
+            resolve(db);
+        };
+        request.onerror = (e) => {
+            reject(new Error("Failed to open songs database"));
+        };
+    });
 }
+
 function openPlaylistConnection() {
-    return new Promise((resolve, reject)=> {
-        let playlistDB_request = indexedDB.open("playlists")
-        playlistDB_request.onsuccess = (event)=> {
-            resolve(event.target.result)
-        }
-        playlistDB_request.onerror = (e)=> {
-            reject(e.target.result.close())
-        }
-    })
+    return new Promise((resolve, reject) => {
+        const playlistDB_request = indexedDB.open("playlists");
+        playlistDB_request.onsuccess = (event) => {
+            resolve(event.target.result);
+        };
+        playlistDB_request.onerror = (e) => {
+            reject(new Error("Failed to open playlists database"));
+        };
+    });
 }
 
 /**End untility Functions */
@@ -34,24 +38,91 @@ let songs = [];
 let songIndex = 0 ;
 let totalSongs = 0 ;
 let audioElement ;
+let currentVolume = 1.0; // Default full volume
 
-let masterPlay = document.getElementById("masterPlay");
-let playPrevious = document.getElementById("playPrevious");
-let playNext = document.getElementById("playNext")
-let gif = document.getElementById("player-gif-inner")
-let songDisplayList = document.getElementsByClassName("song-name");
-let progressBar = document.getElementsByClassName("progress-bar")
-let progress = 0;
+// DOM elements
+const masterPlay = document.getElementById("masterPlay");
+const playPrevious = document.getElementById("playPrevious");
+const playNext = document.getElementById("playNext");
+const gif = document.getElementById("player-gif-inner");
+const progressBar = document.querySelector(".progress-bar");
+const volumeSlider = document.getElementById("volume-slider");
+const volumeIcon = document.getElementById("volume-icon");
+const currentTimeDisplay = document.getElementById("current-time");
+const totalTimeDisplay = document.getElementById("total-time");
+const currentSongName = document.getElementById("current-song-name");
+const loopOption = document.getElementById("loopOption");
+const repeatSong = document.querySelector(".repeat-song");
+const slideOption = document.querySelector(".slide-option");
+const mainSlider = document.querySelector(".main-slider");
+const addPlaylistButton = document.querySelector(".add-playlist");
+const songDisplayList = document.querySelectorAll(".song-name");
+
 let songlist_conrtolBtn = document.getElementsByClassName("song-list-control-btn");
-let loopOption = document.getElementById("loopOption") /*Checks if user has clicked the loop option or shuffle option */
-let loopIcon = document.getElementById("loop-icon")
 let loop = true; /*User has true: loop or false: shuffle */
-let repeatSong = document.querySelector(".repeat-song")
 let repeatSame = true;
+let progress = 0;
 
+// Initialize the audio context lazily on first user interaction
+// This prevents the "AudioContext was not allowed to start" error
+let audioContext;
+function initAudioContext() {
+    if (!audioContext) {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    }
+}
+
+// Update slider's visual state
+function updateSliderBackground(slider, value) {
+    slider.style.background = `linear-gradient(to right, #1DB954 ${value}%, rgba(83, 83, 83, 0.3) ${value}%)`;
+}
 
 function setAudio_for_first_use(){
+    if (!songs.length) return;
+    
+    if (audioElement) {
+        audioElement.pause();
+        audioElement = null;
+    }
+    
     audioElement = new Audio(URL.createObjectURL(songs[songIndex].audio));
+    audioElement.volume = currentVolume;
+    updateCurrentSongDisplay();
+    
+    // Set up event listeners
+    audioElement.addEventListener("loadedmetadata", () => {
+        updateTotalTime();
+    });
+}
+
+function updateCurrentSongDisplay() {
+    if (songs.length && songs[songIndex]) {
+        currentSongName.textContent = songs[songIndex].songName;
+    } else {
+        currentSongName.textContent = "Select a song to play";
+    }
+}
+
+function formatTime(seconds) {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = Math.floor(seconds % 60);
+    return `${minutes}:${remainingSeconds < 10 ? '0' : ''}${remainingSeconds}`;
+}
+
+function updateTotalTime() {
+    if (audioElement && !isNaN(audioElement.duration)) {
+        totalTimeDisplay.textContent = formatTime(audioElement.duration);
+    } else {
+        totalTimeDisplay.textContent = "0:00";
+    }
+}
+
+function updateCurrentTime() {
+    if (audioElement) {
+        currentTimeDisplay.textContent = formatTime(audioElement.currentTime);
+    } else {
+        currentTimeDisplay.textContent = "0:00";
+    }
 }
 
 function first_load_songs_display(){
@@ -78,71 +149,129 @@ function first_load_songs_display(){
 first_load_songs_display();
 
 function addSongtoDB(file){
-    let songBlob = new Blob([file], {type: file.type})
-    let hashBlob = async (blob)=> {
+    return new Promise((resolve, reject) => {
+        let songBlob = new Blob([file], {type: file.type});
+        
+        let hashBlob = async (blob) => {
+            try {
         const arrayBuffer = await blob.arrayBuffer();
-        const hashBuffer = await crypto.subtle.digest("SHA-256", arrayBuffer)  // returns low level 
-        // convert array into 8 bits combinations (bytes)
-        const uint8Array = new Uint8Array(hashBuffer)
-        const byteArray = Array.from(uint8Array)
-        const hexArray = byteArray.map(byte=> {
-            return byte.toString(16).padStart(2, "0")
-        });
-        const hexString = hexArray.join('');
-        return hexString;
-    }
-    hashBlob(songBlob).then((songHash) => {
-        let songs_obj_Name ;
-        openSongsConnection().then((db)=> {
+                const hashBuffer = await crypto.subtle.digest("SHA-256", arrayBuffer);
+                const uint8Array = new Uint8Array(hashBuffer);
+                const byteArray = Array.from(uint8Array);
+                const hexArray = byteArray.map(byte => {
+                    return byte.toString(16).padStart(2, "0");
+                });
+                return hexArray.join('');
+            } catch (error) {
+                reject(error);
+                return null;
+            }
+        };
+        
+        hashBlob(songBlob)
+            .then((songHash) => {
+                if (!songHash) return; // Already rejected in hashBlob
+                
+                let songs_obj_Name;
+                let songAdded = false;
+                
+                // First add to songs database
+                openSongsConnection()
+                    .then((db) => {
             songs_obj_Name = db.objectStoreNames[0];
-            if(songs_obj_Name !== undefined ){
-                let transaction = db.transaction([db.objectStoreNames[0]], "readwrite")
-                let objectStore = transaction.objectStore(db.objectStoreNames[0])
-                const song = {songName: file.name, audio: songBlob, id: totalSongs, hash:songHash}
-                const request = objectStore.add(song)
-                request.onsuccess = ()=> {
+                        if (songs_obj_Name !== undefined) {
+                            const transaction = db.transaction([songs_obj_Name], "readwrite");
+                            const objectStore = transaction.objectStore(songs_obj_Name);
+                            const song = {songName: file.name, audio: songBlob, id: totalSongs, hash: songHash};
+                            
+                            return new Promise((resolveTransaction, rejectTransaction) => {
+                                const request = objectStore.add(song);
+                                
+                                request.onsuccess = () => {
                     totalSongs++;
-                    songs.push(song)
+                                    songs.push(song);
                     update_items_from_Db();
-                    db.close()
-                }
-                request.onerror = (e)=> {
-                    db.close()
-                    // alert("song already exists in the player list")
-                    console.log(e)
-                };
+                                    songAdded = true;
+                                    db.close();
+                                    resolveTransaction();
+                                };
+                                
+                                request.onerror = (e) => {
+                                    db.close();
+                                    console.log(e);
+                                    rejectTransaction(new Error("Song already exists in the player list"));
+                                };
+                            });
             } else {
-                alert("choose a database")
-            }
-        });
-        openPlaylistConnection().then((db)=> {
-            // console.log("adding song in obj store [0] ", songs_obj_Name)
-            if (db.objectStoreNames.contains(songs_obj_Name)){
-                let transaction = db.transaction([songs_obj_Name], "readwrite")
-                let objectStore = transaction.objectStore(songs_obj_Name)
-                const song = {songName: file.name, audio: songBlob, id: totalSongs, hash:songHash}
-                const request = objectStore.add(song)
-                request.onsuccess = ()=> {
-                    console.log("song has been added successfully in plalilst db")
-                    db.close()
-                }
-                request.onerror = (e)=> {
-                    alert("song already exists in the player list")
-                    console.log(e)
-                    db.close()
-                }
+                            db.close();
+                            return Promise.reject(new Error("Choose a database"));
+                        }
+                    })
+                    .then(() => {
+                        // Then add to playlist database
+                        return openPlaylistConnection();
+                    })
+                    .then((db) => {
+                        if (db.objectStoreNames.contains(songs_obj_Name)) {
+                            const transaction = db.transaction([songs_obj_Name], "readwrite");
+                            const objectStore = transaction.objectStore(songs_obj_Name);
+                            const song = {songName: file.name, audio: songBlob, id: totalSongs, hash: songHash};
+                            
+                            return new Promise((resolvePlaylist, rejectPlaylist) => {
+                                const request = objectStore.add(song);
+                                
+                                request.onsuccess = () => {
+                                    console.log("Song has been added successfully in playlist db");
+                                    db.close();
+                                    resolvePlaylist();
+                                };
+                                
+                                request.onerror = (e) => {
+                                    console.log(e);
+                                    db.close();
+                                    // Don't reject here, as the song is already added to the songs DB
+                                    resolvePlaylist();
+                                };
+                            });
             } else {
-                console.log("can't find respective object store")
+                            console.log("Can't find respective object store");
                 db.close();
-            }
-        });
+                            return Promise.resolve(); // Continue the chain
+                        }
+                    })
+                    .then(() => {
+                        resolve(); // All done successfully
+                    })
+                    .catch((error) => {
+                        if (songAdded) {
+                            // If we managed to add the song to the main DB but failed elsewhere,
+                            // still consider it a success
+                            resolve();
+                        } else {
+                            reject(error);
+                        }
+                    });
+            })
+            .catch(reject);
     });
 }
 let input_File = document.getElementById("input-file")
 input_File.addEventListener("change", (e)=> {
     const file = e.target.files[0]
     if (file) {
+        // Show loading indicator
+        currentSongName.textContent = "Uploading song...";
+        
         addSongtoDB(file)
+            .then(() => {
+                // Update UI after successful upload
+                updateCurrentSongDisplay();
+            })
+            .catch(error => {
+                console.error("Error uploading song:", error);
+                currentSongName.textContent = "Error uploading song";
+            });
+            
         e.target.value = ''
     }
 })
@@ -183,14 +312,22 @@ function update_items_from_Db() {
 }
 
 let timeUpdateProgressBar = () => {
-    audioElement.addEventListener("timeupdate", ()=>{
-        progress = parseInt((audioElement.currentTime / audioElement.duration ) * 100);
-        progressBar[0].value = progress;
-        progressBar[0].style.background = `linear-gradient(to right, rgb(0,0,0),  rgb(156, 156, 92) ${progress}%, black ${progress}%)`;
-        if (progressBar[0].value == 100){
+    // Remove any existing event listeners first to avoid duplicates
+    audioElement.removeEventListener("timeupdate", updateProgress);
+    
+    // Add the event listener
+    audioElement.addEventListener("timeupdate", updateProgress);
+}
+
+// Create a separate function for the timeupdate handler
+function updateProgress() {
+    progress = parseInt((audioElement.currentTime / audioElement.duration) * 100);
+    progressBar.value = progress;
+    updateSliderBackground(progressBar, progress);
+    updateCurrentTime();
+    if (progressBar.value == 100) {
                 LoopOptionControl();
         }
-    })
 }
 
 let Play_from_song_List = (index, element) => {
@@ -199,9 +336,14 @@ let Play_from_song_List = (index, element) => {
 
     let click_on_different_link = () => {
         audioElement.pause(); // pause the previous song
-        progressBar[0].value = 0;  // set the progress bar to zero
+        progressBar.value = 0;  // set the progress bar to zero
         songIndex = index;  // change the audio to new element
         audioElement = new Audio(URL.createObjectURL(songs[songIndex].audio));  // load the new song
+        audioElement.volume = currentVolume;
+        
+        // Update song name display
+        updateCurrentSongDisplay();
+        
         audioElement.play(); // play that song
         timeUpdateProgressBar();
         masterPlay.classList.replace('fa-circle-play', 'fa-circle-pause');  // change main button to play
@@ -227,6 +369,7 @@ let Play_from_song_List = (index, element) => {
     } else if (audioElement.paused) {  // it is not running
         if (index == songIndex) {  // user clicks on the same link
             audioElement.play();  // play the song
+            updateCurrentSongDisplay(); // Update song name display
             timeUpdateProgressBar();
             masterPlay.classList.replace('fa-circle-play', 'fa-circle-pause');  // change the main player button to play
             element.classList.replace('fa-circle-play', 'fa-circle-pause');  // change the list player button to play
@@ -254,6 +397,21 @@ let togglePlayPause = (toToggle) => {
     }
 };
 
+// Add a function to update the correct play icon in the song list
+function updateCurrentSongIcon(isPlaying) {
+    // First reset all icons to play
+    SetAllIcons();
+    
+    // Then set the current song's icon if playing
+    if (isPlaying && songIndex < totalSongs) {
+        const songListItems = document.querySelectorAll('.song-list-control-btn');
+        if (songListItems && songListItems[songIndex]) {
+            songListItems[songIndex].classList.replace('fa-circle-play', 'fa-circle-pause');
+        }
+    }
+}
+
+// Update masterPlay event listener
 masterPlay.addEventListener('click', (e)=> {
     if (e.hasOwnProperty('index') && e.index !== undefined){
         Play_from_song_List(e.index, e.element)
@@ -261,26 +419,58 @@ masterPlay.addEventListener('click', (e)=> {
         if (!audioElement){
             setAudio_for_first_use();
         }
-        togglePlayPause(masterPlay)
-        togglePlayPause(song_List_Container.item(songIndex))
+        togglePlayPause(masterPlay);
+        
+        // Update the icon in the song list to match the play state
+        const isPlaying = masterPlay.classList.contains('fa-circle-pause');
+        updateCurrentSongIcon(isPlaying);
     }
 })
 
-progressBar[0].addEventListener('change' , ()=> {
-    audioElement.currentTime = (progressBar[0].value * audioElement.duration) / 100
-    progressBar[0].style.background = `linear-gradient(to right, rgb(0,0,0),  rgb(156, 156, 92) ${progress}%, black ${progress}%)`;
-})
-playNext.addEventListener('click', ()=> {
-    masterPlay.classList.replace('fa-circle-pause', 'fa-circle-play')
-    audioElement.pause()
-    progressBar[0].value = 0 ;  // set the progress bar to zero
-    songIndex = (songIndex+1) % songs.length
-    audioElement = new Audio(URL.createObjectURL(songs[songIndex].audio))
-    audioElement.load()
-    SetAllIcons()
+progressBar.addEventListener('change' , ()=> {
+    audioElement.currentTime = (progressBar.value * audioElement.duration) / 100
+    progressBar.style.background = `linear-gradient(to right, rgb(0,0,0),  rgb(156, 156, 92) ${progress}%, black ${progress}%)`;
 })
 
+// Update playNext event listener to ensure timer and animation work
+playNext.addEventListener('click', ()=> {
+    const wasPlaying = !audioElement.paused;
+    
+    masterPlay.classList.replace('fa-circle-pause', 'fa-circle-play')
+    audioElement.pause()
+    progressBar.value = 0 ;  // set the progress bar to zero
+    songIndex = (songIndex+1) % songs.length
+    audioElement = new Audio(URL.createObjectURL(songs[songIndex].audio))
+    audioElement.volume = currentVolume;
+    audioElement.load()
+    
+    // Update song name display when changing songs
+    updateCurrentSongDisplay();
+    
+    // Reset all icons to play state
+    SetAllIcons();
+    
+    // If the previous song was playing, automatically play the next song
+    if (wasPlaying) {
+        audioElement.play().then(() => {
+            masterPlay.classList.replace('fa-circle-play', 'fa-circle-pause');
+            gif.setAttribute("src", "assets/try-cover-5.gif");
+            // Ensure time updates and progress bar works
+            timeUpdateProgressBar();
+            updateCurrentSongIcon(true);
+        }).catch(error => {
+            console.error("Error playing next song:", error);
+        });
+    } else {
+        // Pause animation
+        gif.setAttribute("src", "assets/try-cover-5-pause.gif");
+    }
+})
+
+// Update playPrevious event listener to ensure timer and animation work
 playPrevious.addEventListener('click', ()=> {
+    const wasPlaying = !audioElement.paused;
+    
     masterPlay.classList.replace('fa-circle-pause', 'fa-circle-play')
     audioElement.pause()
     songIndex = (songIndex-1)%songs.length
@@ -288,13 +478,31 @@ playPrevious.addEventListener('click', ()=> {
         songIndex = songIndex + songs.length
     }
     audioElement = new Audio(URL.createObjectURL(songs[songIndex].audio))
-    progressBar[0].value = 0 ;  // set the progress bar to zero
+    audioElement.volume = currentVolume;
+    progressBar.value = 0 ;  // set the progress bar to zero
     audioElement.load()
-    SetAllIcons()
-})
-
-Array.from(songDisplayList).forEach((element, i) => {
-    element.innerHTML = songs[i].songName
+    
+    // Update song name display when changing songs
+    updateCurrentSongDisplay();
+    
+    // Reset all icons to play state
+    SetAllIcons();
+    
+    // If the previous song was playing, automatically play the previous song
+    if (wasPlaying) {
+        audioElement.play().then(() => {
+            masterPlay.classList.replace('fa-circle-play', 'fa-circle-pause');
+            gif.setAttribute("src", "assets/try-cover-5.gif");
+            // Ensure time updates and progress bar works
+            timeUpdateProgressBar();
+            updateCurrentSongIcon(true);
+        }).catch(error => {
+            console.error("Error playing previous song:", error);
+        });
+    } else {
+        // Pause animation
+        gif.setAttribute("src", "assets/try-cover-5-pause.gif");
+    }
 })
 
 function SetAllIcons(){
@@ -312,146 +520,147 @@ Array.from(songlist_conrtolBtn).forEach((e, i) => {
     })
 })
 
-function songs_UI_generator (song_List_Container , song , i){
-    // Clear the container before adding new songs
-    // song_List_Container.innerHTML = ''; 
-
-    // songs.forEach((song, i) => {
+function songs_UI_generator(song_List_Container, song, i) {
         const li = document.createElement('li');
 
-        const DeleteDiv = document.createElement("div")
-        const deleteIcon = document.createElement("i")
+    // Create the song cover image
         const spanImg = document.createElement('span');
         const img = document.createElement('img');
-
-
-        DeleteDiv.classList.add("delete-div-song")
-        deleteIcon.classList.add("fa-solid", "fa-trash", "delete-icon")
-        DeleteDiv.appendChild(deleteIcon)
-
-        // song_List_Container.appendChild(playlistDiv)
-        li.appendChild(DeleteDiv)
-        li.onmouseover = ()=> {
-            DeleteDiv.classList.add("visible")
-        }
-        li.onmouseout = ()=> {
-            DeleteDiv.classList.remove("visible")
-        }
-        DeleteDiv.addEventListener(("click") , (event)=> {
-            let liParent = event.target.parentNode.parentNode;
-            let li_songName = liParent.children[2].innerText.replaceAll(" ", "");
-            let currentPlaylist ;
-            console.log("trying to delete song")
-            console.log(event.target.parentNode.parentNode)
-            // event.target.parentNode.parentNode.remove()
-            openSongsConnection().then((db)=> {
-                return new Promise((resolve , reject) => {
-                    currentPlaylist = db.objectStoreNames[0]
-                    let tx = db.transaction([currentPlaylist], "readwrite")
-                    let objectStore = tx.objectStore(currentPlaylist)
-                    let cursorRequest = objectStore.openCursor();
-                    console.log("current songs playlist" , currentPlaylist)
-                    cursorRequest.onsuccess = (e)=> {
-                        let cursor = e.target.result
-                        if (cursor){
-                            if (cursor.value.songName.replaceAll(" ", "") == li_songName){
-                                console.log("item deleted from song database successfully")
-                                songs.splice(songs.indexOf(cursor.value), 1)
-                                totalSongs--;
-                                cursor.delete();
-                                event.target.parentNode.parentNode.remove()
-                                db.close();
-                                resolve();
-                                // From here of the promise it does not goes to the next then 
-    
-                            } else {
-                                cursor.continue();
-                            }
-                        } else {
-                            db.close();
-                            console.log("cursor ended temp")
-                            resolve();
-                        }
-                    }
-                    cursorRequest.onerror = (e)=> {
-                        db.close();
-                        reject("there was error opening the cursor on the object in songs database", e)
-                    }
-                })
-                // console.log("object store of playlist delete" , objectStore)
-            }).then(()=> {
-                openPlaylistConnection().then((playlist_db)=> {
-                    let tx = playlist_db.transaction([currentPlaylist] , "readwrite")
-                    let objectStore = tx.objectStore(currentPlaylist)
-                    let cursorRequest = objectStore.openCursor();
-                    console.log("to delete also from playlist DB")
-                    console.log(currentPlaylist)
-                    cursorRequest.onsuccess = (event)=> {
-                        let cursor = event.target.result
-                        if (cursor){
-                            if (cursor.value.songName.replaceAll(" ", "") == li_songName){                                
-                                console.log("item deleted from playlist database successfully")
-                                console.log(cursor.value)
-                                let deleteRequest = cursor.delete()
-                                deleteRequest.onsuccess = ()=> {
-                                    console.log("cursor deleted successfuly")
-                                    playlist_db.close();
-                                }
-                            } else {
-                                cursor.continue();
-                            }
-                        } else {
-                            console.log("cursor ended on deleting from playlist")
-                            playlist_db.close();
-                        }
-                    }
-                    cursorRequest.onerror = (e)=> {
-                        playlist_db.close();
-                        alert("couldn't open cursor on playlist for delete", e)
-                    }
-                })
-            }).catch((e)=> {
-                console.log("coming to playlist for delete throws an error ", e)
-            })
-        })
-
-
-        img.src = `assets/Covers/${i}.jpg`; // Make sure this file exists
+    img.src = `assets/Covers/${i % 7}.jpg`; // Cycle through available covers
         img.alt = "";
         img.classList.add('song-cover');
         spanImg.appendChild(img);
 
+    // Create the song name display
         const spanName = document.createElement('span');
         spanName.classList.add('song-name');
         spanName.textContent = song.songName;
 
-        const icon = document.createElement('i');
-        icon.classList.add('fa-solid', 'fa-2x', 'fa-circle-play', 'control-button', 'song-list-control-btn');
-        icon.addEventListener('click', () => {
-            SetAllIcons();  // Reset all icons to play state
-            Play_from_song_List(i, icon);  // Call the function to play the song and update the icon
-        });
+    // Create the controls container for play/delete
+    const controlsContainer = document.createElement('div');
+    controlsContainer.style.display = 'flex';
+    controlsContainer.style.alignItems = 'center';
+    controlsContainer.style.gap = '0.8rem';
 
-        // Create an audio element to get the duration
-        const tempAudio = new Audio(URL.createObjectURL(song.audio));
+    // Create the play/pause button
+        const icon = document.createElement('i');
+    icon.classList.add('fa-solid', 'fa-circle-play', 'control-button', 'song-list-control-btn');
+    icon.setAttribute('data-index', i);
+    
+    // Create an elegant delete button
+    const deleteBtn = document.createElement('i');
+    deleteBtn.classList.add('fa-solid', 'fa-xmark', 'song-delete-btn');
+    deleteBtn.title = "Remove song";
+
+    // Add to controls container
+    controlsContainer.appendChild(icon);
+    controlsContainer.appendChild(deleteBtn);
+
+    // Create duration span
         const dur = document.createElement('span');
         dur.classList.add('song-duration');
 
-        // Load the audio metadata and get the duration
+    // Load the audio metadata to get the duration
+    const tempAudio = new Audio(URL.createObjectURL(song.audio));
         tempAudio.addEventListener('loadedmetadata', () => {
             const minutes = Math.floor(tempAudio.duration / 60);
             const seconds = Math.floor(tempAudio.duration % 60);
             dur.textContent = `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
         });
 
+    // Assemble the list item
         li.appendChild(spanImg);
         li.appendChild(spanName);
         li.appendChild(dur);
-        li.appendChild(icon);
+    li.appendChild(controlsContainer);
+
+    // Keep the old delete div for compatibility but hide it via CSS
+    const DeleteDiv = document.createElement("div");
+    DeleteDiv.classList.add("delete-div-song");
+    li.appendChild(DeleteDiv);
+
+    // Add event listeners
+    icon.addEventListener('click', (event) => {
+        event.stopPropagation();
+        SetAllIcons();
+        Play_from_song_List(i, icon);
+    });
+
+    // Add click event to the whole li element for better UX
+    li.addEventListener('click', () => {
+        SetAllIcons();
+        Play_from_song_List(i, icon);
+    });
+
+    // Delete functionality with confirmation
+    deleteBtn.addEventListener('click', (event) => {
+        event.stopPropagation(); // Prevent triggering the song play
+        
+        if (confirm(`Remove "${song.songName}" from your library?`)) {
+            deleteSong(song, li, i);
+        }
+    });
 
         song_List_Container.appendChild(li);
-    // });
 }
+
+// Function to handle song deletion
+function deleteSong(song, liElement, index) {
+    openSongsConnection().then((db) => {
+        const currentPlaylist = db.objectStoreNames[0];
+        const tx = db.transaction([currentPlaylist], "readwrite");
+        const objectStore = tx.objectStore(currentPlaylist);
+        
+        const request = objectStore.delete(song.hash);
+        
+        request.onsuccess = () => {
+            console.log("Song deleted from songs database");
+            // Remove from UI and songs array
+            liElement.remove();
+            songs = songs.filter(s => s.hash !== song.hash);
+            totalSongs--;
+            
+            // If current song was deleted
+            if (songIndex === index) {
+                if (songs.length > 0) {
+                    songIndex = songIndex % songs.length;
+                    setAudio_for_first_use();
+                    updateCurrentSongDisplay();
+                    // Make sure animation is paused
+                    gif.src = "assets/try-cover-5-pause.gif";
+                    masterPlay.classList.replace('fa-circle-pause', 'fa-circle-play');
+                } else {
+                    audioElement = null;
+                    songIndex = 0;
+                    totalSongs = 0;
+                    currentSongName.textContent = "No songs available";
+                    gif.src = "assets/try-cover-5-pause.gif";
+                    masterPlay.classList.replace('fa-circle-pause', 'fa-circle-play');
+                }
+            }
+            
+            db.close();
+            
+            // Also delete from playlist database
+            openPlaylistConnection().then((playlistDb) => {
+                if (playlistDb.objectStoreNames.contains(currentPlaylist)) {
+                    const pTx = playlistDb.transaction([currentPlaylist], "readwrite");
+                    const pObjectStore = pTx.objectStore(currentPlaylist);
+                    
+                    pObjectStore.delete(song.hash);
+                    console.log("Song deleted from playlist database");
+                    playlistDb.close();
+                }
+            });
+        };
+        
+        request.onerror = (e) => {
+            console.error("Error deleting song:", e);
+            db.close();
+        };
+    });
+}
+
 /**show_allSongs() start here */
 function show_allSongs(song_Added) {
     let song_List_Container = document.querySelector(".song-list");
@@ -471,42 +680,74 @@ function show_allSongs(song_Added) {
 
 // show_allSongs();
 loopOption.addEventListener("click", ()=> {
-    const parser = new DOMParser();
-    const loopsvg = '<?xml version="1.0" encoding="UTF-8" ?><svg width="41" height="34px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" color="#000000" stroke-width="1.5"><path fill-rule="evenodd" clip-rule="evenodd" d="M1.25 12C1.25 6.06294 6.06294 1.25 12 1.25C17.9371 1.25 22.75 6.06294 22.75 12C22.75 17.9371 17.9371 22.75 12 22.75C6.06294 22.75 1.25 17.9371 1.25 12ZM11.9877 7.75C9.70121 7.75 7.9471 9.28219 7.74541 11.0835C7.69932 11.4951 7.32825 11.7914 6.91661 11.7453C6.50497 11.6992 6.20863 11.3282 6.25472 10.9165C6.556 8.22597 9.07599 6.25 11.9877 6.25C13.6578 6.25 15.1863 6.8937 16.2503 7.94689V7.5C16.2503 7.08579 16.5861 6.75 17.0003 6.75C17.4145 6.75 17.7503 7.08579 17.7503 7.5V9.12222C17.7503 9.86781 17.1459 10.4722 16.4003 10.4722H14.4941C14.0799 10.4722 13.7441 10.1364 13.7441 9.72222C13.7441 9.30801 14.0799 8.97222 14.4941 8.97222H15.1523C14.3818 8.23175 13.2617 7.75 11.9877 7.75ZM12.0123 16.25C14.158 16.25 16.03 14.4222 16.2529 11.9331C16.2899 11.5205 16.6543 11.216 17.0669 11.253C17.4794 11.2899 17.7839 11.6544 17.747 12.0669C17.467 15.1926 15.0648 17.75 12.0123 17.75C10.3037 17.75 8.79345 16.943 7.74967 15.6877V16.4004C7.74967 16.8146 7.41389 17.1504 6.99967 17.1504C6.58546 17.1504 6.24967 16.8146 6.24967 16.4004V14.2226C6.24967 13.477 6.85409 12.8726 7.59967 12.8726H9.50586C9.92007 12.8726 10.2559 13.2084 10.2559 13.6226C10.2559 14.0368 9.92007 14.3726 9.50586 14.3726H8.63282C9.42384 15.5314 10.6601 16.25 12.0123 16.25Z" fill="#000000"></path></svg>'
-    const shufflesvg = '<?xml version="1.0" encoding="UTF-8"?><svg width="41px" height="34px" stroke-width="1.5" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" color="#000000"><path d="M22 6.99999C19 6.99999 13.5 6.99999 11.5 12.5C9.5 18 5 18 2 18" stroke="#000000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path><path d="M20 5C20 5 21.219 6.21895 22 7C21.219 7.78105 20 9 20 9" stroke="#000000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path><path d="M22 18C19 18 13.5 18 11.5 12.5C9.5 6.99999 5 7.00001 2 7" stroke="#000000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path><path d="M20 20C20 20 21.219 18.781 22 18C21.219 17.219 20 16 20 16" stroke="#000000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path></svg>'
-    if (loop == true){
-        const svgDoc = parser.parseFromString(shufflesvg, "image/svg+xml")
-        const svgElement = svgDoc.documentElement
-        loopOption.innerHTML = '';
-        loopOption.appendChild(svgElement)
-        console.log("child appended")
-        loop = false ;
+    if (loop == true) {
+        // Switch to shuffle mode - use FontAwesome icon
+        loopOption.innerHTML = '<i class="fa-solid fa-shuffle control-button"></i>';
+        loop = false;
     } else {
-        const svgDoc = parser.parseFromString(loopsvg, "image/svg+xml")
-        const svgElement = svgDoc.documentElement
-        loopOption.innerHTML = ''
-        loopOption.appendChild(svgElement)
+        // Switch to loop mode - use FontAwesome icon
+        loopOption.innerHTML = '<i class="fa-solid fa-repeat control-button"></i>';
         loop = true;
     }
 })
-let LoopOptionControl = ()=> {
-    if (loop === true && !repeatSame){
-        playNext.click()
-        masterPlay.click()
-    } else if (loop === true && repeatSame){
-        masterPlay.click()
-    } else if (loop === false /*&& !repeatSame*/) { 
-        let rand = Math.floor(Math.random() * songs.length)
-        console.log(rand);
-        songlist_conrtolBtn.item(rand).click()
-        // SetAllIcons();
-        // let customEvent = new Event('click');
-        // customEvent.index = rand;
-        // customEvent.element = songlist_conrtolBtn.item(rand);
-        // masterPlay.dispatchEvent(customEvent)
-        console.log(songlist_conrtolBtn.item(rand))
 
-        // Play_from_song_List(rand, )
+// Add initialization for the loopOption to ensure it shows the correct icon on load
+document.addEventListener("DOMContentLoaded", function() {
+    // Set initial state of loop icon
+    if (loop) {
+        loopOption.innerHTML = '<i class="fa-solid fa-repeat control-button"></i>';
+    } else {
+        loopOption.innerHTML = '<i class="fa-solid fa-shuffle control-button"></i>';
+    }
+    
+    // Set initial state of volume slider background
+    updateSliderBackground(volumeSlider, volumeSlider.value);
+    
+    // Set initial state of progress bar background
+    updateSliderBackground(progressBar, 0);
+});
+
+let LoopOptionControl = ()=> {
+    if (repeatSame) {
+        // Repeat the same song
+        audioElement.currentTime = 0;
+        audioElement.play()
+            .then(() => {
+                // Make sure the timer updates
+                timeUpdateProgressBar();
+            })
+            .catch(console.error);
+    } else if (loop) {
+        // Loop through playlist
+        songIndex = (songIndex + 1) % totalSongs;
+        setAudio_for_first_use();
+        audioElement.play()
+            .then(() => {
+                // Make sure the timer updates
+                timeUpdateProgressBar();
+                updateCurrentSongDisplay(); // Update display when song changes
+                SetAllIcons();
+                updateCurrentSongIcon(true); // Update the song list icon
+            })
+            .catch(console.error);
+    } else {
+        // Shuffle mode
+        const oldIndex = songIndex;
+        // Get a new random index different from the current one
+        do {
+            songIndex = Math.floor(Math.random() * totalSongs);
+        } while (songIndex === oldIndex && totalSongs > 1);
+        
+        setAudio_for_first_use();
+        audioElement.play()
+            .then(() => {
+                // Make sure the timer updates
+                timeUpdateProgressBar();
+                updateCurrentSongDisplay(); // Update display when song changes
+                SetAllIcons();
+                updateCurrentSongIcon(true); // Update the song list icon
+            })
+            .catch(console.error);
     } 
 }
 repeatSong.addEventListener("click", ()=> {
@@ -522,24 +763,22 @@ repeatSong.addEventListener("click", ()=> {
 })
 
 /* Handling Slider */
-let slide_container = document.querySelector(".main-slider")
-let slide_option = document.querySelector(".slide-option")
-slide_option.addEventListener("click", ()=> {
-    slide_container.classList.toggle("main-slider-hide")
-    const slider_option_rect = slide_option.getBoundingClientRect();
-    console.log(slider_option_rect)
-    setTimeout(()=> {
-        slide_option.classList.toggle("slide-hide-option")
-    }, 170)
-    console.log(slider_option_rect)
-    console.log("clicked")
-})
+const slideShowOption = document.querySelector(".slide-show-option");
+slideShowOption.addEventListener("click", () => {
+    mainSlider.classList.toggle("active");
+    
+    // Update aria-expanded attribute for accessibility
+    const isExpanded = mainSlider.classList.contains("active");
+    slideShowOption.setAttribute("aria-expanded", isExpanded.toString());
+    
+    // Update the aria-label based on state
+    slideShowOption.setAttribute("aria-label", isExpanded ? "Close sidebar" : "Open sidebar");
+});
 /**End slider */
 
 
 
 /** Handling playlist add  */
-let addPlaylistButton = document.querySelector(".add-playlist");
 
 addPlaylistButton.addEventListener("click", (event) => {
     let newObjectSource;
@@ -679,136 +918,188 @@ let toggle_All_Playlist_Animation = () => {
 }
 
 function Display_Playlist(playlistName) {
-    const playlistDiv = document.createElement("div")
-    const DeleteDiv = document.createElement("div")
-    const text_container = document.createElement("div")
-    const text = document.createElement("p")
-    const deleteIcon = document.createElement("i")
-    playlistDiv.classList.add("playlist", "playlist-item")
-    DeleteDiv.classList.add("delete-div-playlist")
-    deleteIcon.classList.add("fa-solid", "fa-trash", "delete-icon")
-    text_container.appendChild(text);
-    text_container.classList.add("playlist-text-container")
-    DeleteDiv.appendChild(deleteIcon)
-    text.innerText = playlistName
-    playlistDiv.appendChild(DeleteDiv)
-    playlistDiv.appendChild(text_container)
+    // Create the main playlist div
+    const playlistDiv = document.createElement("div");
+    playlistDiv.classList.add("playlist", "playlist-item");
+    
+    // Create the content container
+    const contentContainer = document.createElement("div");
+    contentContainer.style.display = "flex";
+    contentContainer.style.justifyContent = "space-between";
+    contentContainer.style.alignItems = "center";
+    contentContainer.style.width = "100%";
+    
+    // Create the text element
+    const playlistText = document.createElement("span");
+    playlistText.style.flex = "1";
+    playlistText.style.whiteSpace = "nowrap";
+    playlistText.style.overflow = "hidden";
+    playlistText.style.textOverflow = "ellipsis";
+    playlistText.textContent = playlistName;
+    
+    // Create the delete button (similar to song delete button)
+    const deleteBtn = document.createElement("i");
+    deleteBtn.classList.add("fa-solid", "fa-xmark", "playlist-delete-btn");
+    deleteBtn.title = "Remove playlist";
+    
+    // Assemble the content container
+    contentContainer.appendChild(playlistText);
+    contentContainer.appendChild(deleteBtn);
+    
+    // Add content to the playlist div
+    playlistDiv.appendChild(contentContainer);
+    
+    // Add to the DOM
+    Display_Playlists_Div.appendChild(playlistDiv);
 
-    Display_Playlists_Div.appendChild(playlistDiv)
-
-    playlistDiv.onmouseover = ()=> {
-        DeleteDiv.classList.add("visible")
-    }
-    playlistDiv.onmouseout = ()=> {
-        DeleteDiv.classList.remove("visible")
-    }
-    deleteIcon.addEventListener("click", (e)=> {
-        e.stopPropagation();
-        e.target.parentNode.click();
-    })
-    DeleteDiv.addEventListener("click", (event) => {
-        event.stopPropagation(); // Prevent click from reaching `playlistDiv`
-        console.log(event)
-        console.log("Delete action triggered", event.target.nextSibling.innerText); // Add delete functionality here
-        let playlistVer = 0;
-        let objectStore ;
-        openPlaylistConnection().then((db)=> {
-            return new Promise((resolve , reject)=> {
-                playlistVer = db.version
-                db.close();
-                resolve();
-            })
-        }).then(() => {
-            let playlist = indexedDB.open("playlists", playlistVer + 1)
-            playlist.onupgradeneeded = (e)=> {
-                playlist_db = e.target.result
-                objectStore = event.srcElement.nextSibling.innerText
-                playlist_db.deleteObjectStore(event.srcElement.nextSibling.innerText);
-                console.log(event)
-                playlist_db.close();
-                console.log(event.target.parentElement)
-                event.target.parentElement.remove()
-                // let toremove = document.querySelector(".remove")
-                // Display_Playlists_Div.remove(toremove)
-            }
-        })
+    // Add event listeners for playlist selection (clicking on the playlist)
+    playlistDiv.addEventListener("click", (event) => {
+        // Ignore clicks on the delete button
+        if (event.target === deleteBtn) return;
         
-        let songlistVer = 0;
-        openSongsConnection().then((db)=> {
-            return new Promise((resolve , reject)=> {
-                songlistVer = db.version
-                db.close();
-                resolve();
-            })
-        }).then(() => {
-            let songlist = indexedDB.open("songs", songlistVer + 1)
-            songlist.onupgradeneeded = (e)=> {
-                songlistdb = e.target.result
-                songlistdb.deleteObjectStore(objectStore);
-                console.log(event)
-                songlistdb.close();
-                // console.log(event.target.parentElement)
-                event.target.parentElement.remove()
-                // let toremove = document.querySelector(".remove")
-                // Display_Playlists_Div.remove(toremove)
-            }
-        })
-    });
-
-    text_container.addEventListener("click", (event)=> {
+        // Handle playlist selection
         toggle_All_Playlist_Animation();
-        event.target.parentNode.classList.add("playlist-animation")
-        console.log(event.target.innerHTML)
-        playlistName = (event.target.children)[0].innerText
-        console.log(playlistName)
+        playlistDiv.classList.add("playlist-animation");
+        
+        // Get the playlist name
+        const selectedPlaylistName = playlistText.textContent;
+        console.log("Selected playlist:", selectedPlaylistName);
+        
         let songDB_ver = 0;
-        let songObjectName ;
+        let songObjectName;
 
-        console.log("empty for playlist", songs)
-        openSongsConnection().then((db)=> {
-            songDB_ver = db.version
-            songObjectName = db.objectStoreNames[0]
-            console.log("there are objectstores in songs db ", songObjectName)
+        console.log("empty for playlist", songs);
+        openSongsConnection().then((db) => {
+            songDB_ver = db.version;
+            songObjectName = db.objectStoreNames[0];
+            console.log("there are objectstores in songs db ", songObjectName);
             db.close();
 
-            openPlaylistConnection().then((playlist_db)=> {
-                let tx = playlist_db.transaction([playlistName], "readonly")
-                let objectStore = tx.objectStore(playlistName)
-                let tempSongs = []
+            openPlaylistConnection().then((playlist_db) => {
+                let tx = playlist_db.transaction([selectedPlaylistName], "readonly");
+                let objectStore = tx.objectStore(selectedPlaylistName);
+                let tempSongs = [];
                 let cursorRequest = objectStore.openCursor();
-                songs = []
+                songs = [];
                 totalSongs = 0;
-                cursorRequest.onsuccess = (e)=> {
+                cursorRequest.onsuccess = (e) => {
                     cursor = e.target.result;
-                    if (cursor){
-                        tempSongs.push(cursor.value)
+                    if (cursor) {
+                        tempSongs.push(cursor.value);
                         cursor.continue();
                     } else {
-                        swapObectStores(playlistName, songDB_ver, songObjectName,  tempSongs).then(()=> {
+                        swapObectStores(selectedPlaylistName, songDB_ver, songObjectName, tempSongs).then(() => {
                             first_load_songs_display();
                             songIndex = 0;
-                            console.log(audioElement.paused)
-                            let customEvent = new Event("click")
-                            // customEvent.index = 0;
-                            if (!audioElement.paused){
-                                masterPlay.dispatchEvent(customEvent)
+                            
+                            // Reset audio for the new playlist
+                            if (audioElement) {
+                                audioElement.pause();
+                                setAudio_for_first_use();
+                                updateCurrentSongDisplay();
+                                progressBar.value = 0;
+                                updateSliderBackground(progressBar, 0);
+                                masterPlay.classList.replace('fa-circle-pause', 'fa-circle-play');
+                                gif.setAttribute("src", "assets/try-cover-5-pause.gif");
                             }
+                            
+                            // Auto-close sidebar on mobile after playlist selection
+                            if (window.innerWidth <= 768) {
+                                mainSlider.classList.remove("active");
+                                slideShowOption.setAttribute("aria-expanded", "false");
+                            }
+                            
                             playlist_db.close();
-                        }).catch(()=> {
+                        }).catch(() => {
                             playlist_db.close();
-                            console.log("there was an error swapping the songs")
-                        })
+                            console.log("there was an error swapping the songs");
+                        });
                     }
-                }
-                cursorRequest.onerror = ()=> {
+                };
+                cursorRequest.onerror = () => {
                     console.log("there was an error opening the cursor");
-                }
-            }).catch(()=> {
-                console.log("couldn't open playlist database for songs swapping")
+                };
+            }).catch(() => {
+                console.log("couldn't open playlist database for songs swapping");
             });
         });
     });
+
+    // Delete functionality
+    deleteBtn.addEventListener("click", (event) => {
+        event.stopPropagation(); // Prevent triggering playlist selection
+        
+        // Confirm deletion
+        if (confirm(`Delete playlist "${playlistName}"?`)) {
+            deletePlaylist(playlistName, playlistDiv);
+        }
+    });
 }
+
+// Function to handle playlist deletion
+function deletePlaylist(playlistName, playlistDiv) {
+    let playlistVer = 0;
+    
+    // Delete from playlists database
+    openPlaylistConnection().then((db) => {
+        playlistVer = db.version;
+        db.close();
+        
+        let playlist = indexedDB.open("playlists", playlistVer + 1);
+        playlist.onupgradeneeded = (e) => {
+            const db = e.target.result;
+            db.deleteObjectStore(playlistName);
+            console.log("Playlist deleted from playlists database");
+        };
+        
+        playlist.onsuccess = (e) => {
+            e.target.result.close();
+            
+            // Remove from UI
+            playlistDiv.remove();
+            
+            // Also delete from songs database if it's the current object store
+            let songlistVer = 0;
+            openSongsConnection().then((db) => {
+                const currentObjectStore = db.objectStoreNames[0];
+                songlistVer = db.version;
+                db.close();
+                
+                // Only delete if this playlist is the current object store
+                if (currentObjectStore === playlistName) {
+                    let songlist = indexedDB.open("songs", songlistVer + 1);
+                    songlist.onupgradeneeded = (e) => {
+                        const db = e.target.result;
+                        db.deleteObjectStore(playlistName);
+                        console.log("Playlist deleted from songs database");
+                    };
+                    
+                    songlist.onsuccess = (e) => {
+                        e.target.result.close();
+                        
+                        // Reset the current playlist if needed
+                        if (songs.length > 0 && currentObjectStore === playlistName) {
+                            songs = [];
+                            totalSongs = 0;
+                            if (audioElement) {
+                                audioElement.pause();
+                                audioElement = null;
+                                masterPlay.classList.replace('fa-circle-pause', 'fa-circle-play');
+                                gif.src = "assets/try-cover-5-pause.gif";
+                                currentSongName.textContent = "No songs available";
+                            }
+                            
+                            // Clear the song list
+                            const songList = document.querySelector(".song-list");
+                            songList.innerHTML = '';
+                        }
+                    };
+                }
+            });
+        };
+    });
+}
+
 function DisplayAll_Playlists() {
     let playlists = indexedDB.open("playlists")
     playlists.onupgradeneeded = (e)=> {
@@ -829,6 +1120,82 @@ function DisplayAll_Playlists() {
     }
 }
 DisplayAll_Playlists();
+
+// Volume control functionality
+volumeSlider.addEventListener("input", () => {
+    if (audioElement) {
+        currentVolume = volumeSlider.value / 100;
+        audioElement.volume = currentVolume;
+        
+        // Update volume icon based on level
+        updateVolumeIcon();
+    }
+    
+    // Update slider visual
+    updateSliderBackground(volumeSlider, volumeSlider.value);
+});
+
+// Update volume icon based on volume level
+function updateVolumeIcon() {
+    volumeIcon.className = "fa-solid control-button";
+    
+    if (currentVolume === 0) {
+        volumeIcon.classList.add("fa-volume-xmark");
+    } else if (currentVolume < 0.5) {
+        volumeIcon.classList.add("fa-volume-low");
+    } else {
+        volumeIcon.classList.add("fa-volume-high");
+    }
+}
+
+// Toggle mute when clicking volume icon
+volumeIcon.addEventListener("click", () => {
+    if (audioElement) {
+        if (audioElement.volume > 0) {
+            // Store the current volume before muting
+            volumeSlider.dataset.previousVolume = volumeSlider.value;
+            volumeSlider.value = 0;
+            audioElement.volume = 0;
+        } else {
+            // Restore previous volume
+            const previousVolume = volumeSlider.dataset.previousVolume || 100;
+            volumeSlider.value = previousVolume;
+            audioElement.volume = previousVolume / 100;
+        }
+        
+        updateVolumeIcon();
+        updateSliderBackground(volumeSlider, volumeSlider.value);
+    }
+});
+
+// Progress bar interaction
+progressBar.addEventListener("input", () => {
+    if (audioElement) {
+        const seekTime = (progressBar.value / 100) * audioElement.duration;
+        audioElement.currentTime = seekTime;
+        updateCurrentTime();
+    }
+    
+    // Update progress bar visual
+    updateSliderBackground(progressBar, progressBar.value);
+});
+
+// Add document click handler to close sidebar when clicking outside
+document.addEventListener("click", (event) => {
+    // Check if sidebar is open
+    if (mainSlider.classList.contains("active")) {
+        // Check if click was outside the sidebar and not on the hamburger menu
+        const isClickInsideSidebar = mainSlider.contains(event.target);
+        const isClickOnHamburger = slideShowOption.contains(event.target);
+        
+        if (!isClickInsideSidebar && !isClickOnHamburger) {
+            mainSlider.classList.remove("active");
+            // Update aria attributes for accessibility
+            slideShowOption.setAttribute("aria-expanded", "false");
+            slideShowOption.setAttribute("aria-label", "Open sidebar");
+        }
+    }
+});
 
 
 
